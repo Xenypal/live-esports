@@ -192,31 +192,7 @@ export function createBlueDragonWindowFrames(): WindowFrame[] {
 }
 
 export function createObjectiveTimerWindowFrames(): WindowFrame[] {
-  const baselineWindowFrame = createLiveWindowFrame();
-
-  const gameStartFrame: WindowFrame = {
-    ...baselineWindowFrame,
-    gameState: 'in_game',
-    rfc460Timestamp: '2026-04-03T08:00:00.000Z',
-    blueTeam: {
-      ...baselineWindowFrame.blueTeam,
-      barons: 0,
-      dragons: [],
-      inhibitors: 0,
-      totalGold: 500,
-      totalKills: 0,
-      towers: 0,
-    },
-    redTeam: {
-      ...baselineWindowFrame.redTeam,
-      barons: 0,
-      dragons: [],
-      inhibitors: 0,
-      totalGold: 500,
-      totalKills: 0,
-      towers: 0,
-    },
-  };
+  const gameStartFrame = createObjectiveTimerInitialWindowFrame();
 
   return [
     gameStartFrame,
@@ -266,6 +242,102 @@ export function createObjectiveTimerWindowFrames(): WindowFrame[] {
         totalGold: 50000,
         totalKills: 9,
         towers: 3,
+      },
+    },
+  ];
+}
+
+export function createObjectiveTimerInitialWindowFrame(): WindowFrame {
+  const baselineWindowFrame = createLiveWindowFrame();
+
+  return {
+    ...baselineWindowFrame,
+    gameState: 'in_game',
+    rfc460Timestamp: '2026-04-03T08:00:00.000Z',
+    blueTeam: {
+      ...baselineWindowFrame.blueTeam,
+      barons: 0,
+      dragons: [],
+      inhibitors: 0,
+      totalGold: 500,
+      totalKills: 0,
+      towers: 0,
+    },
+    redTeam: {
+      ...baselineWindowFrame.redTeam,
+      barons: 0,
+      dragons: [],
+      inhibitors: 0,
+      totalGold: 500,
+      totalKills: 0,
+      towers: 0,
+    },
+  };
+}
+
+export function createSplitDragonObjectiveWindowFrames(): WindowFrame[] {
+  const gameStartFrame = createObjectiveTimerInitialWindowFrame();
+
+  return [
+    {
+      ...gameStartFrame,
+      rfc460Timestamp: '2026-04-03T08:25:10.000Z',
+      blueTeam: {
+        ...gameStartFrame.blueTeam,
+        dragons: ['ocean', 'hextech', 'infernal'],
+        totalGold: 51750,
+        totalKills: 14,
+        towers: 6,
+      },
+      redTeam: {
+        ...gameStartFrame.redTeam,
+        dragons: ['cloud', 'mountain'],
+        totalGold: 48900,
+        totalKills: 11,
+        towers: 4,
+      },
+    },
+  ];
+}
+
+export function createSoulClinchObjectiveWindowFrames(): WindowFrame[] {
+  const gameStartFrame = createObjectiveTimerInitialWindowFrame();
+
+  return [
+    {
+      ...gameStartFrame,
+      rfc460Timestamp: '2026-04-03T08:25:10.000Z',
+      blueTeam: {
+        ...gameStartFrame.blueTeam,
+        dragons: ['ocean', 'hextech', 'infernal'],
+        totalGold: 51750,
+        totalKills: 14,
+        towers: 6,
+      },
+      redTeam: {
+        ...gameStartFrame.redTeam,
+        dragons: ['cloud', 'mountain'],
+        totalGold: 48900,
+        totalKills: 11,
+        towers: 4,
+      },
+    },
+    {
+      ...gameStartFrame,
+      rfc460Timestamp: '2026-04-03T08:30:10.000Z',
+      blueTeam: {
+        ...gameStartFrame.blueTeam,
+        dragons: ['ocean', 'hextech', 'infernal', 'chemtech'],
+        totalGold: 55600,
+        totalKills: 17,
+        towers: 8,
+      },
+      redTeam: {
+        ...gameStartFrame.redTeam,
+        dragons: ['cloud', 'mountain'],
+        totalGold: 50300,
+        totalKills: 12,
+        towers: 4,
       },
     },
   ];

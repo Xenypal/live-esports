@@ -71,13 +71,17 @@ export function advanceObjectiveTimeline(previousFrame: WindowFrame | null, curr
 
     const previousElementalDragons = getElementalDragonCount(previousFrame);
     const currentElementalDragons = getElementalDragonCount(currentFrame);
+    const currentSoulOwner = getSoulOwner(currentFrame);
 
     if (currentElementalDragons > previousElementalDragons) {
-        if (currentElementalDragons >= 4) {
+        if (currentSoulOwner) {
             nextTimeline.dragonRespawnAtMs = undefined;
+            nextTimeline.elderRespawnAtMs = undefined;
             nextTimeline.elderSpawnAtMs = currentFrameMs + (ELDER_SPAWN_SECONDS * 1000);
         } else {
             nextTimeline.dragonRespawnAtMs = currentFrameMs + (DRAGON_RESPAWN_SECONDS * 1000);
+            nextTimeline.elderSpawnAtMs = undefined;
+            nextTimeline.elderRespawnAtMs = undefined;
         }
     }
 
@@ -182,11 +186,11 @@ export function getObjectiveTimerNotes(
     }
 
     const inGameSeconds = Math.max(0, Math.floor((currentFrameMs - firstFrameMs) / 1000));
-    const elementalDragonCount = getElementalDragonCount(lastWindowFrame);
+    const soulOwner = getSoulOwner(lastWindowFrame);
     const notes: ObjectiveTimerNote[] = [];
 
     if (lastWindowFrame.gameState !== 'finished') {
-        if (elementalDragonCount < 4) {
+        if (!soulOwner) {
             if (inGameSeconds < DRAGON_FIRST_SPAWN_SECONDS) {
                 notes.push({
                     icon: 'dragon',
@@ -211,11 +215,12 @@ export function getObjectiveTimerNotes(
                 });
             }
         } else {
-            const elderTimerTargetMs = objectiveTimeline.elderSpawnAtMs && objectiveTimeline.elderSpawnAtMs > currentFrameMs
-                ? objectiveTimeline.elderSpawnAtMs
-                : objectiveTimeline.elderRespawnAtMs && objectiveTimeline.elderRespawnAtMs > currentFrameMs
-                    ? objectiveTimeline.elderRespawnAtMs
-                    : undefined;
+            const elderTimerTargetMs = getCurrentElderTimerTargetMs(
+                firstFrameMs,
+                lastWindowFrame,
+                objectiveTimeline,
+                currentFrameMs,
+            );
 
             if (elderTimerTargetMs) {
                 notes.push({
@@ -283,6 +288,7 @@ export function getTeamBuffTimerNotes(
     }
 
     const inGameSeconds = Math.max(0, Math.floor((currentFrameMs - firstFrameMs) / 1000));
+    const soulClinchElementalDragonCount = getSoulClinchElementalDragonCount(lastWindowFrame);
     const blueNotes = [
         getObservedTeamBuffTimerNote("blue", "baron", blueTeam, objectiveTimeline.blueBaronBuffExpiresAtMs, objectiveTimeline.blueBaronBuffCertainty, currentFrameMs),
         getObservedTeamBuffTimerNote("blue", "elder", blueTeam, objectiveTimeline.blueElderBuffExpiresAtMs, objectiveTimeline.blueElderBuffCertainty, currentFrameMs),
@@ -309,14 +315,14 @@ export function getTeamBuffTimerNotes(
     const blueElderCount = countDragonType(lastWindowFrame.blueTeam.dragons, "elder");
     const redElderCount = countDragonType(lastWindowFrame.redTeam.dragons, "elder");
     if (!blueNotes.some(note => note.icon === "elder")) {
-        const estimatedBlueElder = getEstimatedTeamBuffTimerNote("blue", "elder", blueTeam, blueElderCount, inGameSeconds);
+        const estimatedBlueElder = getEstimatedTeamBuffTimerNote("blue", "elder", blueTeam, blueElderCount, inGameSeconds, soulClinchElementalDragonCount);
         if (estimatedBlueElder) {
             blueNotes.push(estimatedBlueElder);
         }
     }
 
     if (!redNotes.some(note => note.icon === "elder")) {
-        const estimatedRedElder = getEstimatedTeamBuffTimerNote("red", "elder", redTeam, redElderCount, inGameSeconds);
+        const estimatedRedElder = getEstimatedTeamBuffTimerNote("red", "elder", redTeam, redElderCount, inGameSeconds, soulClinchElementalDragonCount);
         if (estimatedRedElder) {
             redNotes.push(estimatedRedElder);
         }
@@ -346,6 +352,7 @@ export function getPlayerBuffIndicators(
     }
 
     const inGameSeconds = Math.max(0, Math.floor((currentFrameMs - firstFrameMs) / 1000));
+    const soulClinchElementalDragonCount = getSoulClinchElementalDragonCount(lastWindowFrame);
     const playerBuffs: Record<number, PlayerBuffIndicator[]> = {};
 
     (objectiveTimeline.playerBuffs || []).forEach(buff => {
@@ -382,6 +389,7 @@ export function getPlayerBuffIndicators(
         objectiveTimeline.blueElderBuffExpiresAtMs,
         countDragonType(lastWindowFrame.blueTeam.dragons, "elder"),
         inGameSeconds,
+        soulClinchElementalDragonCount,
     );
     addEstimatedPlayerBuffs(
         playerBuffs,
@@ -390,6 +398,7 @@ export function getPlayerBuffIndicators(
         objectiveTimeline.redElderBuffExpiresAtMs,
         countDragonType(lastWindowFrame.redTeam.dragons, "elder"),
         inGameSeconds,
+        soulClinchElementalDragonCount,
     );
 
     return playerBuffs;
@@ -411,12 +420,70 @@ function pruneExpiredObjectiveTimers(timeline: ObjectiveTimeline, currentFrameMs
 }
 
 function getElementalDragonCount(frame: WindowFrame) {
-    return frame.blueTeam.dragons.filter(dragon => dragon !== 'elder').length
-        + frame.redTeam.dragons.filter(dragon => dragon !== 'elder').length;
+    return getElementalDragonCountForSide(frame, "blue")
+        + getElementalDragonCountForSide(frame, "red");
+}
+
+function getElementalDragonCountForSide(frame: WindowFrame, side: TeamSide) {
+    const dragons = side === "blue" ? frame.blueTeam.dragons : frame.redTeam.dragons;
+    return dragons.filter(dragon => dragon !== 'elder').length;
+}
+
+function getSoulOwner(frame: WindowFrame) {
+    if (getElementalDragonCountForSide(frame, "blue") >= 4) {
+        return "blue" as const;
+    }
+
+    if (getElementalDragonCountForSide(frame, "red") >= 4) {
+        return "red" as const;
+    }
+
+    return undefined;
+}
+
+function getSoulClinchElementalDragonCount(frame: WindowFrame) {
+    if (!getSoulOwner(frame)) {
+        return undefined;
+    }
+
+    return getElementalDragonCount(frame);
 }
 
 function countDragonType(dragons: string[], dragonType: string) {
     return dragons.filter(dragon => dragon === dragonType).length;
+}
+
+function getCurrentElderTimerTargetMs(
+    firstFrameMs: number,
+    lastWindowFrame: WindowFrame,
+    objectiveTimeline: ObjectiveTimeline,
+    currentFrameMs: number,
+) {
+    if (objectiveTimeline.elderSpawnAtMs && objectiveTimeline.elderSpawnAtMs > currentFrameMs) {
+        return objectiveTimeline.elderSpawnAtMs;
+    }
+
+    if (objectiveTimeline.elderRespawnAtMs && objectiveTimeline.elderRespawnAtMs > currentFrameMs) {
+        return objectiveTimeline.elderRespawnAtMs;
+    }
+
+    const derivedElderTargetSeconds = getDerivedElderTargetSeconds(lastWindowFrame);
+    if (derivedElderTargetSeconds === undefined) {
+        return undefined;
+    }
+
+    const derivedElderTargetMs = firstFrameMs + (derivedElderTargetSeconds * 1000);
+    return derivedElderTargetMs > currentFrameMs ? derivedElderTargetMs : undefined;
+}
+
+function getDerivedElderTargetSeconds(frame: WindowFrame) {
+    const soulClinchElementalDragonCount = getSoulClinchElementalDragonCount(frame);
+    if (!soulClinchElementalDragonCount) {
+        return undefined;
+    }
+
+    const elderObjectiveCount = countDragonType(frame.blueTeam.dragons, "elder") + countDragonType(frame.redTeam.dragons, "elder");
+    return getFirstElderSpawnSeconds(soulClinchElementalDragonCount) + (elderObjectiveCount * ELDER_RESPAWN_SECONDS);
 }
 
 function updateObjectivePlayerBuffs(
@@ -505,13 +572,14 @@ function getEstimatedTeamBuffTimerNote(
     team: Team,
     objectiveCount: number,
     inGameSeconds: number,
+    soulClinchElementalDragonCount?: number,
 ) {
     if (objectiveCount < 1) {
         return undefined;
     }
 
-    const guaranteedExpirySeconds = getGuaranteedBuffExpirySeconds(kind, objectiveCount);
-    if (guaranteedExpirySeconds <= inGameSeconds) {
+    const guaranteedExpirySeconds = getGuaranteedBuffExpirySeconds(kind, objectiveCount, soulClinchElementalDragonCount);
+    if (!guaranteedExpirySeconds || guaranteedExpirySeconds <= inGameSeconds) {
         return undefined;
     }
 
@@ -532,13 +600,14 @@ function addEstimatedPlayerBuffs(
     exactTeamExpiresAtMs: number | undefined,
     objectiveCount: number,
     inGameSeconds: number,
+    soulClinchElementalDragonCount?: number,
 ) {
     if (exactTeamExpiresAtMs || objectiveCount < 1) {
         return;
     }
 
-    const guaranteedExpirySeconds = getGuaranteedBuffExpirySeconds(kind, objectiveCount);
-    if (guaranteedExpirySeconds <= inGameSeconds) {
+    const guaranteedExpirySeconds = getGuaranteedBuffExpirySeconds(kind, objectiveCount, soulClinchElementalDragonCount);
+    if (!guaranteedExpirySeconds || guaranteedExpirySeconds <= inGameSeconds) {
         return;
     }
 
@@ -563,13 +632,21 @@ function addEstimatedPlayerBuffs(
     });
 }
 
-function getGuaranteedBuffExpirySeconds(kind: BuffKind, objectiveCount: number) {
+function getGuaranteedBuffExpirySeconds(kind: BuffKind, objectiveCount: number, soulClinchElementalDragonCount?: number) {
     if (kind === "baron") {
         return BARON_FIRST_SPAWN_SECONDS + ((objectiveCount - 1) * BARON_RESPAWN_SECONDS) + BARON_BUFF_SECONDS;
     }
 
-    const firstElderTakeSeconds = DRAGON_FIRST_SPAWN_SECONDS + (3 * DRAGON_RESPAWN_SECONDS) + ELDER_SPAWN_SECONDS;
+    if (!soulClinchElementalDragonCount) {
+        return undefined;
+    }
+
+    const firstElderTakeSeconds = getFirstElderSpawnSeconds(soulClinchElementalDragonCount);
     return firstElderTakeSeconds + ((objectiveCount - 1) * ELDER_RESPAWN_SECONDS) + ELDER_BUFF_SECONDS;
+}
+
+function getFirstElderSpawnSeconds(soulClinchElementalDragonCount: number) {
+    return DRAGON_FIRST_SPAWN_SECONDS + ((soulClinchElementalDragonCount - 1) * DRAGON_RESPAWN_SECONDS) + ELDER_SPAWN_SECONDS;
 }
 
 function formatRemainingTime(totalSeconds: number) {

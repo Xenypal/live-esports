@@ -6,8 +6,11 @@ import {
   createEstimatedBaronInitialWindowFrame,
   createEstimatedBaronBuffWindowFrames,
   createObservedBaronBuffWindowFrames,
+  createObjectiveTimerInitialWindowFrame,
   createObjectiveTimerWindowFrames,
   createPreSpawnObjectiveWindowFrames,
+  createSoulClinchObjectiveWindowFrames,
+  createSplitDragonObjectiveWindowFrames,
   mockLiveMatchApis,
 } from './helpers/liveMatchMocks';
 
@@ -59,6 +62,41 @@ test('objective footer keeps dragon and baron visible as alive', async ({ page }
   await expect(page.getByTestId('objective-note-dragon')).toContainText('ALIVE');
   await expect(page.getByTestId('objective-note-baron')).toContainText('Baron');
   await expect(page.getByTestId('objective-note-baron')).toContainText('ALIVE');
+});
+
+test('objective footer keeps dragon as the next objective until a team reaches soul', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('sound', 'mute');
+  });
+
+  await mockLiveMatchApis(page, {
+    initialWindowFrame: createObjectiveTimerInitialWindowFrame(),
+    liveWindowFrames: createSplitDragonObjectiveWindowFrames(),
+  });
+
+  await page.goto('/#/live/match-1/game-index/1');
+
+  await expect(page.getByRole('button', { name: 'Copy Champion Names' })).toBeVisible();
+  await expect(page.getByTestId('objective-note-dragon')).toContainText('Dragon');
+  await expect(page.getByTestId('objective-note-elder')).toHaveCount(0);
+});
+
+test('objective footer switches to elder only after the soul-clinching dragon', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('sound', 'mute');
+  });
+
+  await mockLiveMatchApis(page, {
+    initialWindowFrame: createObjectiveTimerInitialWindowFrame(),
+    liveWindowFrames: createSoulClinchObjectiveWindowFrames(),
+  });
+
+  await page.goto('/#/live/match-1/game-index/1');
+
+  await expect(page.getByRole('button', { name: 'Copy Champion Names' })).toBeVisible();
+  await expect(page.getByTestId('objective-note-elder')).toContainText('Elder');
+  await expect(page.getByTestId('objective-note-elder')).toContainText('6:00');
+  await expect(page.getByTestId('objective-note-dragon')).toHaveCount(0);
 });
 
 test('live match footer keeps team buffs by the team header and not in the objective strip', async ({ page }) => {
