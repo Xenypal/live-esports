@@ -33,6 +33,7 @@ export function Match({ match }: any) {
     const [firstWindowFrame, setFirstWindowFrame] = useState<WindowFrame>();
     const [lastDetailsFrame, setLastDetailsFrame] = useState<DetailsFrame>();
     const [lastWindowFrame, setLastWindowFrame] = useState<WindowFrame>();
+    const [windowHistoryFrames, setWindowHistoryFrames] = useState<WindowFrame[]>([]);
     const [metadata, setMetadata] = useState<GameMetadata>();
     const [records, setRecords] = useState<Record[]>();
     const [results, setResults] = useState<Result[]>();
@@ -47,6 +48,7 @@ export function Match({ match }: any) {
     const firstFrameTimestampRef = useRef<string | Date>();
     const latestWindowTimestampRef = useRef<string | Date>();
     const latestDetailsTimestampRef = useRef<string | Date>();
+    const windowHistoryFramesRef = useRef<WindowFrame[]>([]);
     const finishedWinnerRefreshGameIdRef = useRef<string>();
     const detectedFinishedFrameRef = useRef<string>();
 
@@ -64,9 +66,11 @@ export function Match({ match }: any) {
         firstFrameTimestampRef.current = undefined;
         latestWindowTimestampRef.current = undefined;
         latestDetailsTimestampRef.current = undefined;
+        windowHistoryFramesRef.current = [];
         finishedWinnerRefreshGameIdRef.current = undefined;
         detectedFinishedFrameRef.current = undefined;
         setFinishedWinner(undefined);
+        setWindowHistoryFrames([]);
         logLivePerf('match_mount', { matchId });
         getEventDetails(getInitialGameIndex());
         logLivePerf('polling_loop_started', {
@@ -118,10 +122,10 @@ export function Match({ match }: any) {
                 setEventDetails(eventDetails)
                 setGameIndex(gameIndex)
                 currentGameIndex = newGameIndex
+                matchEventDetails = eventDetails
                 getFirstWindow(gameId)
                 getScheduleEvent(eventDetails)
                 getResults(eventDetails)
-                matchEventDetails = eventDetails
                 logLivePerf('event_details_state_update', {
                     gameId,
                     gameIndex,
@@ -175,27 +179,44 @@ export function Match({ match }: any) {
         }
 
         function getFirstWindow(gameId: string) {
-            getWindowResponse(gameId).then(response => {
+            getWindowResponse(gameId).then(async response => {
                 if (!isActive) return;
                 if (response === undefined) return
                 let frames: WindowFrame[] = response.data.frames;
                 if (frames === undefined) return;
+                frames = await hydrateWindowHistory(gameId, frames);
+                if (!isActive || frames.length === 0) return;
+
+                const firstFrame = frames[0]
+                const latestFrame = frames[frames.length - 1]
 
                 firstWindowReceived = true
-                firstFrameTimestampRef.current = frames[0].rfc460Timestamp
+                currentTimestamp = latestFrame.rfc460Timestamp
+                firstFrameTimestampRef.current = firstFrame.rfc460Timestamp
+                latestWindowTimestampRef.current = latestFrame.rfc460Timestamp
+                windowHistoryFramesRef.current = frames
                 setMetadata(response.data.gameMetadata)
-                setFirstWindowFrame(frames[0])
+                setFirstWindowFrame(firstFrame)
+                setLastWindowFrame(latestFrame)
+                setWindowHistoryFrames(frames)
+                if (matchEventDetails !== undefined) {
+                    const outcome = getOutcomeForGame(matchEventDetails, currentGameIndex, latestFrame)
+                    setCurrentGameOutcome(outcome)
+                    setFinishedWinner(latestFrame.gameState === 'finished'
+                        ? getFinishedWinner(matchEventDetails, currentGameIndex, outcome)
+                        : undefined)
+                }
                 getItems(response.data.gameMetadata)
                 getRunes(response.data.gameMetadata)
                 getLiveWindow(gameId)
                 getLastDetailsFrame(gameId)
                 logLivePerf('first_window_state_update', {
-                    frameTimestamp: frames[0].rfc460Timestamp,
+                    frameTimestamp: latestFrame.rfc460Timestamp,
                     gameId,
                     patchVersion: response.data.gameMetadata.patchVersion,
                     ...getFrameFreshnessContext({
                         firstFrameTimestamp: firstFrameTimestampRef.current,
-                        windowFrameTimestamp: frames[0].rfc460Timestamp,
+                        windowFrameTimestamp: latestFrame.rfc460Timestamp,
                     }),
                 });
             });
@@ -219,6 +240,11 @@ export function Match({ match }: any) {
                 }
                 currentTimestamp = lastWindowFrame.rfc460Timestamp
                 latestWindowTimestampRef.current = lastWindowFrame.rfc460Timestamp
+                setWindowHistoryFrames(currentFrames => {
+                    const nextFrames = mergeWindowFrameHistory(currentFrames, frames);
+                    windowHistoryFramesRef.current = nextFrames;
+                    return nextFrames;
+                });
 
                 setLastWindowFrame(lastWindowFrame)
                 setMetadata(response.data.gameMetadata)
@@ -264,6 +290,42 @@ export function Match({ match }: any) {
                     setFinishedWinner(undefined);
                 }
             });
+        }
+
+        async function hydrateWindowHistory(gameId: string, initialFrames: WindowFrame[]) {
+            let nextFrames = mergeWindowFrameHistory([], initialFrames);
+            const latestFrame = nextFrames[nextFrames.length - 1];
+            if (latestFrame === undefined || latestFrame.gameState !== 'in_game' || nextFrames.length > 1) {
+                return nextFrames;
+            }
+
+            const backfillStart = getWindowHistoryBackfillStart(latestFrame.rfc460Timestamp);
+            if (backfillStart === undefined) {
+                return nextFrames;
+            }
+
+            logLivePerf('window_history_backfill_start', {
+                backfillStart,
+                gameId,
+                latestFrameTimestamp: latestFrame.rfc460Timestamp,
+            });
+            const backfillResponse = await getWindowResponse(gameId, backfillStart);
+            if (!isActive || backfillResponse === undefined) {
+                return nextFrames;
+            }
+
+            const backfillFrames: WindowFrame[] = backfillResponse.data.frames;
+            if (backfillFrames === undefined || backfillFrames.length === 0) {
+                return nextFrames;
+            }
+
+            nextFrames = mergeWindowFrameHistory(nextFrames, backfillFrames);
+            logLivePerf('window_history_backfill_complete', {
+                backfillFrameCount: backfillFrames.length,
+                gameId,
+                historyFrameCount: nextFrames.length,
+            });
+            return nextFrames;
         }
 
         function getLastDetailsFrame(gameId: string) {
@@ -465,7 +527,7 @@ export function Match({ match }: any) {
                 {scheduleEvent !== undefined ? (
                     <MatchDetails eventDetails={eventDetails} gameMetadata={metadata} matchState={formatMatchState(eventDetails, lastWindowFrame, scheduleEvent)} records={records} results={results} scheduleEvent={scheduleEvent} />
                 ) : null}
-                <Game eventDetails={eventDetails} finishedWinner={finishedWinner} gameIndex={gameIndex} gameMetadata={metadata} firstWindowFrame={firstWindowFrame} lastDetailsFrame={lastDetailsFrame} lastWindowFrame={lastWindowFrame} outcome={currentGameOutcome} records={records} results={results} items={items || {}} runes={runes || []} />
+                <Game eventDetails={eventDetails} finishedWinner={finishedWinner} gameIndex={gameIndex} gameMetadata={metadata} firstWindowFrame={firstWindowFrame} windowHistoryFrames={windowHistoryFrames} lastDetailsFrame={lastDetailsFrame} lastWindowFrame={lastWindowFrame} outcome={currentGameOutcome} records={records} results={results} items={items || {}} runes={runes || []} />
             </div>
         );
     } else if (firstWindowFrame !== undefined && metadata !== undefined && eventDetails !== undefined && scheduleEvent !== undefined && gameIndex !== undefined) {
@@ -670,4 +732,40 @@ function formatMatchState(eventDetails: EventDetails, lastWindowFrame: WindowFra
     if (eventDetails.match.games.length === 1) return gameStates[lastWindowFrame.gameState]
     let gamesFinished = eventDetails.match.games.filter(game => game.state === `completed` || game.state === `unneeded`)
     return gameStates[gamesFinished.length >= eventDetails.match.games.length ? `completed` : scheduleEvent.state]
+}
+
+function mergeWindowFrameHistory(existingFrames: WindowFrame[], nextFrames: WindowFrame[]) {
+    const framesByTimestamp = new Map<string, WindowFrame>();
+
+    [...existingFrames, ...nextFrames].forEach(frame => {
+        framesByTimestamp.set(frame.rfc460Timestamp, frame);
+    });
+
+    return Array.from(framesByTimestamp.values()).sort((leftFrame, rightFrame) => {
+        const leftFrameMs = Date.parse(leftFrame.rfc460Timestamp);
+        const rightFrameMs = Date.parse(rightFrame.rfc460Timestamp);
+
+        if (Number.isNaN(leftFrameMs) && Number.isNaN(rightFrameMs)) {
+            return 0;
+        }
+
+        if (Number.isNaN(leftFrameMs)) {
+            return 1;
+        }
+
+        if (Number.isNaN(rightFrameMs)) {
+            return -1;
+        }
+
+        return leftFrameMs - rightFrameMs;
+    })
+}
+
+function getWindowHistoryBackfillStart(frameTimestamp: string) {
+    const frameMs = Date.parse(frameTimestamp);
+    if (Number.isNaN(frameMs)) {
+        return undefined;
+    }
+
+    return new Date(frameMs - (60 * 60 * 1000)).toISOString();
 }

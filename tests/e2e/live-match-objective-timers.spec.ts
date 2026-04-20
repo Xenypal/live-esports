@@ -3,8 +3,9 @@ import { expect, test } from '@playwright/test';
 import {
   createAliveObjectiveWindowFrames,
   createBlueDragonWindowFrames,
-  createEstimatedBaronInitialWindowFrame,
   createEstimatedBaronBuffWindowFrames,
+  createLateJoinBaronRespawnInitialWindowFrames,
+  createLateJoinDragonRespawnInitialWindowFrames,
   createObservedBaronBuffWindowFrames,
   createObjectiveTimerInitialWindowFrame,
   createObjectiveTimerWindowFrames,
@@ -62,6 +63,79 @@ test('objective footer keeps dragon and baron visible as alive', async ({ page }
   await expect(page.getByTestId('objective-note-dragon')).toContainText('ALIVE');
   await expect(page.getByTestId('objective-note-baron')).toContainText('Baron');
   await expect(page.getByTestId('objective-note-baron')).toContainText('ALIVE');
+});
+
+test('objective timer strip sits above the footer buttons and uses larger timer text', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('sound', 'mute');
+  });
+
+  await mockLiveMatchApis(page, {
+    liveWindowFrames: createAliveObjectiveWindowFrames(),
+  });
+
+  await page.goto('/#/live/match-1/game-index/1');
+
+  const objectiveStrip = page.getByTestId('objective-timer-strip');
+  const footerActions = page.getByTestId('match-footer-actions');
+  const dragonStatus = page.getByTestId('objective-note-dragon').locator('.objective-timer-status');
+
+  await expect(objectiveStrip).toBeVisible();
+  await expect(footerActions).toBeVisible();
+
+  const [objectiveStripBox, footerActionsBox] = await Promise.all([
+    objectiveStrip.boundingBox(),
+    footerActions.boundingBox(),
+  ]);
+
+  expect(objectiveStripBox).not.toBeNull();
+  expect(footerActionsBox).not.toBeNull();
+  expect(objectiveStripBox!.y).toBeLessThan(footerActionsBox!.y);
+
+  const objectiveStatusFontSize = await dragonStatus.evaluate(element => (
+    window.getComputedStyle(element).fontSize
+  ));
+  expect(objectiveStatusFontSize).toBe('14px');
+});
+
+test('objective footer reconstructs dragon respawn from late-join frame history', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('sound', 'mute');
+  });
+
+  const initialWindowFrames = createLateJoinDragonRespawnInitialWindowFrames();
+
+  await mockLiveMatchApis(page, {
+    initialWindowFrames,
+    liveWindowFrames: [initialWindowFrames[initialWindowFrames.length - 1]],
+  });
+
+  await page.goto('/#/live/match-1/game-index/1');
+
+  await expect(page.getByRole('button', { name: 'Copy Champion Names' })).toBeVisible();
+  await expect(page.getByTestId('objective-note-dragon')).toContainText('Dragon');
+  await expect(page.getByTestId('objective-note-dragon')).not.toContainText('ALIVE');
+  await expect(page.getByTestId('objective-note-dragon')).toContainText(/3:00|2:5\d/);
+});
+
+test('objective footer reconstructs baron respawn from late-join frame history', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('sound', 'mute');
+  });
+
+  const initialWindowFrames = createLateJoinBaronRespawnInitialWindowFrames();
+
+  await mockLiveMatchApis(page, {
+    initialWindowFrames,
+    liveWindowFrames: [initialWindowFrames[initialWindowFrames.length - 1]],
+  });
+
+  await page.goto('/#/live/match-1/game-index/1');
+
+  await expect(page.getByRole('button', { name: 'Copy Champion Names' })).toBeVisible();
+  await expect(page.getByTestId('objective-note-baron')).toContainText('Baron');
+  await expect(page.getByTestId('objective-note-baron')).not.toContainText('ALIVE');
+  await expect(page.getByTestId('objective-note-baron')).toContainText(/5:00|4:5\d/);
 });
 
 test('objective footer keeps dragon as the next objective until a team reaches soul', async ({ page }) => {
@@ -127,8 +201,12 @@ test('confirmed baron buff badges disappear on death and stay gone after revive'
     localStorage.setItem('sound', 'mute');
   });
 
+  const observedBaronBuffFrames = createObservedBaronBuffWindowFrames();
+
   await mockLiveMatchApis(page, {
-    liveWindowFrames: createObservedBaronBuffWindowFrames(),
+    initialWindowFrames: observedBaronBuffFrames.slice(0, 2),
+    liveWindowFrames: observedBaronBuffFrames.slice(2),
+    liveWindowPollDelayMs: 250,
   });
 
   await page.goto('/#/live/match-1/game-index/1');
@@ -149,9 +227,11 @@ test('estimated mid-session baron buffs render as approximate header timers and 
     localStorage.setItem('sound', 'mute');
   });
 
+  const estimatedBaronFrames = createEstimatedBaronBuffWindowFrames();
+
   await mockLiveMatchApis(page, {
-    initialWindowFrame: createEstimatedBaronInitialWindowFrame(),
-    liveWindowFrames: createEstimatedBaronBuffWindowFrames(),
+    initialWindowFrames: estimatedBaronFrames,
+    liveWindowFrames: estimatedBaronFrames,
   });
 
   await page.goto('/#/live/match-1/game-index/1');
@@ -161,7 +241,7 @@ test('estimated mid-session baron buffs render as approximate header timers and 
   const estimatedPlayerBuff = page.getByTestId('player-buff-1-baron');
 
   await expect(blueBaronTimer).toContainText('FLY Baron Buff');
-  await expect(blueBaronTimer).toContainText(/~1:(2\d|30)/);
+  await expect(blueBaronTimer).toContainText(/~23:00|~22:5\d/);
   await expect(estimatedPlayerBuff).toBeVisible();
   await expect(estimatedPlayerBuff).toHaveClass(/estimated/);
 });

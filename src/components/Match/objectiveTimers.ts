@@ -58,6 +58,22 @@ type PlayerBuffState = PlayerBuffIndicator & {
     side: TeamSide;
 }
 
+export function buildObjectiveTimelineFromFrames(frames: WindowFrame[]) {
+    const orderedFrames = getOrderedUniqueFrames(frames);
+    let previousFrame: WindowFrame | null = null;
+    let timeline: ObjectiveTimeline = {};
+
+    orderedFrames.forEach(frame => {
+        timeline = advanceObjectiveTimeline(previousFrame, frame, timeline);
+        previousFrame = frame;
+    });
+
+    return {
+        lastFrame: previousFrame,
+        timeline,
+    };
+}
+
 export function advanceObjectiveTimeline(previousFrame: WindowFrame | null, currentFrame: WindowFrame, currentTimeline: ObjectiveTimeline) {
     const currentFrameMs = Date.parse(currentFrame.rfc460Timestamp);
     if (Number.isNaN(currentFrameMs)) {
@@ -658,4 +674,30 @@ function formatRemainingTime(totalSeconds: number) {
 
 function getTeamTimerLabel(team: Team) {
     return team.code || team.name;
+}
+
+function getOrderedUniqueFrames(frames: WindowFrame[]) {
+    const framesByTimestamp = new Map<string, WindowFrame>();
+    frames.forEach(frame => {
+        framesByTimestamp.set(frame.rfc460Timestamp, frame);
+    });
+
+    return Array.from(framesByTimestamp.values()).sort((leftFrame, rightFrame) => {
+        const leftFrameMs = Date.parse(leftFrame.rfc460Timestamp);
+        const rightFrameMs = Date.parse(rightFrame.rfc460Timestamp);
+
+        if (Number.isNaN(leftFrameMs) && Number.isNaN(rightFrameMs)) {
+            return 0;
+        }
+
+        if (Number.isNaN(leftFrameMs)) {
+            return 1;
+        }
+
+        if (Number.isNaN(rightFrameMs)) {
+            return -1;
+        }
+
+        return leftFrameMs - rightFrameMs;
+    });
 }

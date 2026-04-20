@@ -436,6 +436,20 @@ Status dragons
     gap: 0.25rem;
 }
 
+.player-death-timer {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.14rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(130, 16, 24, 0.82);
+    color: #fff4f4;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
 .player-buff-badge {
     display: inline-flex;
     align-items: center;
@@ -560,19 +574,26 @@ svg.player-champion {
     cursor: pointer;
 }
 
+.match-footer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-top: 0.95rem;
+}
+
 .objective-timer-strip {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.6rem;
-    margin-top: 0.9rem;
+    gap: 0.8rem;
+    margin-top: 1rem;
 }
 
 .objective-timer-pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
-    min-height: 34px;
-    padding: 0.45rem 0.8rem;
+    gap: 0.55rem;
+    min-height: 40px;
+    padding: 0.55rem 0.95rem;
     border-radius: 999px;
     background: var(--gray-line);
     color: var(--text);
@@ -586,14 +607,14 @@ svg.player-champion {
 
 .objective-timer-icon {
     display: inline-flex;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
 }
 
 .objective-timer-icon svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
 }
 
 .objective-timer-icon svg path,
@@ -603,13 +624,13 @@ svg.player-champion {
 
 .objective-timer-label {
     white-space: nowrap;
-    font-size: 12px;
+    font-size: 14px;
 }
 
 .objective-timer-status {
     font-weight: 600;
     white-space: nowrap;
-    font-size: 12px;
+    font-size: 14px;
 }
 
 @media(max-width: 520px) {
@@ -621,12 +642,27 @@ svg.player-champion {
         letter-spacing: 0.12rem;
     }
 
-    .objective-timer-strip {
+    .match-footer-actions {
         gap: 0.45rem;
+        margin-top: 0.85rem;
+    }
+
+    .objective-timer-strip {
+        gap: 0.55rem;
     }
 
     .objective-timer-pill {
-        padding: 0.4rem 0.65rem;
+        min-height: 36px;
+        padding: 0.45rem 0.75rem;
+    }
+
+    .objective-timer-label,
+    .objective-timer-status {
+        font-size: 13px;
+    }
+
+    .player-death-timer {
+        font-size: 11px;
     }
 }
 

@@ -60,16 +60,19 @@ export function DisabledGame({ firstWindowFrame, gameMetadata, gameIndex, eventD
     const formattedPatchVersion = getFormattedPatchVersion(gameMetadata.patchVersion)
     const championsUrlWithPatchVersion = CHAMPIONS_URL.replace(`PATCH_VERSION`, formattedPatchVersion)
 
-    let playerStatsRows = Array.from($('.player-stats-row th'))
-    let championStatsRows = Array.from($('.champion-stats-row span'))
-    let chevrons = Array.from($('.player-stats-row .chevron-down'))
-    playerStatsRows.forEach((playerStatsRow, index) => {
-        $(playerStatsRow).prop("onclick", null).off("click");
-        $(playerStatsRow).on('click', () => {
-            $(championStatsRows[index]).slideToggle()
-            $(chevrons[index]).toggleClass('rotated')
+    const jquery = typeof window !== "undefined" ? (window as Window & { $?: any }).$ : undefined;
+    if (typeof jquery === "function") {
+        let playerStatsRows = Array.from(jquery('.player-stats-row th'))
+        let championStatsRows = Array.from(jquery('.champion-stats-row span'))
+        let chevrons = Array.from(jquery('.player-stats-row .chevron-down'))
+        playerStatsRows.forEach((playerStatsRow, index) => {
+            jquery(playerStatsRow).prop("onclick", null).off("click");
+            jquery(playerStatsRow).on('click', () => {
+                jquery(championStatsRows[index]).slideToggle()
+                jquery(chevrons[index]).toggleClass('rotated')
+            })
         })
-    })
+    }
 
     const copyChampionNames = () => {
         let championNames: Array<String> = []

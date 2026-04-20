@@ -26,11 +26,13 @@ import { ItemsDisplay } from "./ItemsDisplay";
 import { LiveAPIWatcher } from "./LiveAPIWatcher";
 import { CHAMPIONS_URL, getFormattedPatchVersion } from '../../utils/LoLEsportsAPI';
 import { getFrameFreshnessContext, logLivePerf } from "../../utils/livePerf";
-import { advanceObjectiveTimeline, getObjectiveTimerNotes, getPlayerBuffIndicators, getTeamBuffTimerNotes, ObjectiveTimeline, PlayerBuffIndicator } from "./objectiveTimers";
+import { buildPlayerDeathTimelineFromFrames, getPlayerDeathTimerIndicators, PlayerDeathTimerIndicator } from "./deathTimers";
+import { buildObjectiveTimelineFromFrames, getObjectiveTimerNotes, getPlayerBuffIndicators, getTeamBuffTimerNotes, PlayerBuffIndicator } from "./objectiveTimers";
 
 type Props = {
     firstWindowFrame: WindowFrame,
     lastWindowFrame: WindowFrame,
+    windowHistoryFrames: WindowFrame[],
     lastDetailsFrame?: DetailsFrame,
     finishedWinner?: {
         teamName: string,
@@ -52,11 +54,9 @@ enum GameState {
     finished = "game ended"
 }
 
-export function Game({ firstWindowFrame, lastWindowFrame, lastDetailsFrame, finishedWinner, gameMetadata, gameIndex, eventDetails, outcome, results, items, runes }: Props) {
+export function Game({ firstWindowFrame, lastWindowFrame, windowHistoryFrames, lastDetailsFrame, finishedWinner, gameMetadata, gameIndex, eventDetails, outcome, results, items, runes }: Props) {
     const [gameState, setGameState] = useState<GameState>(GameState[lastWindowFrame.gameState as keyof typeof GameState]);
-    const [objectiveTimeline, setObjectiveTimeline] = useState<ObjectiveTimeline>({});
     const [displayFrameClockMs, setDisplayFrameClockMs] = useState(() => Date.parse(lastWindowFrame.rfc460Timestamp));
-    const previousObjectiveFrameRef = useRef<WindowFrame | null>(null);
     const frameClockAnchorRef = useRef({
         frameMs: Date.parse(lastWindowFrame.rfc460Timestamp),
         wallClockMs: Date.now(),
@@ -145,17 +145,6 @@ export function Game({ firstWindowFrame, lastWindowFrame, lastDetailsFrame, fini
     }
 
     useEffect(() => {
-        setObjectiveTimeline(currentTimeline => advanceObjectiveTimeline(previousObjectiveFrameRef.current, lastWindowFrame, currentTimeline));
-        previousObjectiveFrameRef.current = lastWindowFrame;
-    }, [
-        lastWindowFrame.blueTeam.barons,
-        lastWindowFrame.blueTeam.dragons.length,
-        lastWindowFrame.redTeam.barons,
-        lastWindowFrame.redTeam.dragons.length,
-        lastWindowFrame.rfc460Timestamp,
-    ]);
-
-    useEffect(() => {
         const parsedFrameMs = Date.parse(lastWindowFrame.rfc460Timestamp);
         if (Number.isNaN(parsedFrameMs)) {
             return;
@@ -179,6 +168,12 @@ export function Game({ firstWindowFrame, lastWindowFrame, lastDetailsFrame, fini
     let inGameTime = getInGameTime(firstWindowFrame.rfc460Timestamp, lastWindowFrame.rfc460Timestamp)
     const formattedPatchVersion = getFormattedPatchVersion(gameMetadata.patchVersion)
     const championsUrlWithPatchVersion = CHAMPIONS_URL.replace(`PATCH_VERSION`, formattedPatchVersion)
+    const objectiveTimeline = useMemo(() => (
+        buildObjectiveTimelineFromFrames(windowHistoryFrames).timeline
+    ), [windowHistoryFrames]);
+    const playerDeathTimeline = useMemo(() => (
+        buildPlayerDeathTimelineFromFrames(windowHistoryFrames)
+    ), [windowHistoryFrames]);
     const objectiveTimerNotes = useMemo(() => (
         getObjectiveTimerNotes(firstWindowFrame, lastWindowFrame, objectiveTimeline, blueTeam, redTeam, displayFrameClockMs)
     ), [blueTeam, displayFrameClockMs, firstWindowFrame, lastWindowFrame, objectiveTimeline, redTeam]);
@@ -188,17 +183,23 @@ export function Game({ firstWindowFrame, lastWindowFrame, lastDetailsFrame, fini
     const playerBuffIndicators = useMemo(() => (
         getPlayerBuffIndicators(firstWindowFrame, lastWindowFrame, objectiveTimeline, displayFrameClockMs)
     ), [displayFrameClockMs, firstWindowFrame, lastWindowFrame, objectiveTimeline]);
+    const playerDeathTimerIndicators = useMemo(() => (
+        getPlayerDeathTimerIndicators(lastWindowFrame, playerDeathTimeline, displayFrameClockMs)
+    ), [displayFrameClockMs, lastWindowFrame, playerDeathTimeline]);
 
-    let playerStatsRows = Array.from($('.player-stats-row th'))
-    let championStatsRows = Array.from($('.champion-stats-row span'))
-    let chevrons = Array.from($('.player-stats-row .chevron-down'))
-    playerStatsRows.forEach((playerStatsRow, index) => {
-        $(playerStatsRow).prop("onclick", null).off("click");
-        $(playerStatsRow).on('click', () => {
-            $(championStatsRows[index]).slideToggle()
-            $(chevrons[index]).toggleClass('rotated')
+    const jquery = typeof window !== "undefined" ? (window as Window & { $?: any }).$ : undefined;
+    if (typeof jquery === "function") {
+        let playerStatsRows = Array.from(jquery('.player-stats-row th'))
+        let championStatsRows = Array.from(jquery('.champion-stats-row span'))
+        let chevrons = Array.from(jquery('.player-stats-row .chevron-down'))
+        playerStatsRows.forEach((playerStatsRow, index) => {
+            jquery(playerStatsRow).prop("onclick", null).off("click");
+            jquery(playerStatsRow).on('click', () => {
+                jquery(championStatsRows[index]).slideToggle()
+                jquery(chevrons[index]).toggleClass('rotated')
+            })
         })
-    })
+    }
 
     const copyChampionNames = () => {
         let championNames: Array<String> = []
@@ -368,6 +369,7 @@ export function Game({ firstWindowFrame, lastWindowFrame, lastDetailsFrame, fini
                                                     <span
                                                         className=" player-card-player-name">
                                                         {gameMetadata.blueTeamMetadata.participantMetadata[player.participantId - 1].summonerName}
+                                                        <PlayerDeathTimerBadge playerDeathTimer={playerDeathTimerIndicators[player.participantId]} />
                                                         <PlayerBuffBadges playerBuffs={playerBuffIndicators[player.participantId]} />
                                                     </span>
                                                 </div>
@@ -463,6 +465,7 @@ export function Game({ firstWindowFrame, lastWindowFrame, lastDetailsFrame, fini
                                                     <span>{gameMetadata.redTeamMetadata.participantMetadata[player.participantId - 6].championId}</span>
                                                     <span className=" player-card-player-name">
                                                         {gameMetadata.redTeamMetadata.participantMetadata[player.participantId - 6].summonerName}
+                                                        <PlayerDeathTimerBadge playerDeathTimer={playerDeathTimerIndicators[player.participantId]} />
                                                         <PlayerBuffBadges playerBuffs={playerBuffIndicators[player.participantId]} />
                                                     </span>
                                                 </div>
@@ -506,12 +509,6 @@ export function Game({ firstWindowFrame, lastWindowFrame, lastDetailsFrame, fini
                         </tbody>
                     </table>
                 </div>
-                <span className="footer-notes">
-                    <a target="_blank" href={`https://www.leagueoflegends.com/en-us/news/game-updates/patch-26-${gameMetadata.patchVersion.split(`.`)[1].length > 1 ? gameMetadata.patchVersion.split(`.`)[1] : "" + gameMetadata.patchVersion.split(`.`)[1]}-notes/`}>Patch Version: {gameMetadata.patchVersion}</a>
-                </span>
-                <button type="button" className="footer-notes copy-champion-names" onClick={copyChampionNames}>
-                    Copy Champion Names
-                </button>
                 {objectiveTimerNotes.length > 0 ? (
                     <div className="objective-timer-strip" data-testid="objective-timer-strip">
                         {objectiveTimerNotes.map(objectiveTimerNote => (
@@ -525,6 +522,14 @@ export function Game({ firstWindowFrame, lastWindowFrame, lastDetailsFrame, fini
                         ))}
                     </div>
                 ) : null}
+                <div className="match-footer-actions" data-testid="match-footer-actions">
+                    <span className="footer-notes">
+                        <a target="_blank" href={`https://www.leagueoflegends.com/en-us/news/game-updates/patch-26-${gameMetadata.patchVersion.split(`.`)[1].length > 1 ? gameMetadata.patchVersion.split(`.`)[1] : "" + gameMetadata.patchVersion.split(`.`)[1]}-notes/`}>Patch Version: {gameMetadata.patchVersion}</a>
+                    </span>
+                    <button type="button" className="footer-notes copy-champion-names" onClick={copyChampionNames}>
+                        Copy Champion Names
+                    </button>
+                </div>
             </div>
             <LiveAPIWatcher gameIndex={gameIndex} gameMetadata={gameMetadata} lastWindowFrame={lastWindowFrame} championsUrlWithPatchVersion={championsUrlWithPatchVersion} blueTeam={eventDetails.match.teams[0]} redTeam={eventDetails.match.teams[1]} />
         </div>
@@ -660,6 +665,22 @@ function getGoldDifference(player: WindowParticipant, side: string, gameMetadata
             goldDifference: goldResult > 0 ? "+" + Number(goldResult).toLocaleString("en-us") : Number(goldResult).toLocaleString("en-us")
         };
     }
+}
+
+function PlayerDeathTimerBadge({ playerDeathTimer }: { playerDeathTimer?: PlayerDeathTimerIndicator }) {
+    if (!playerDeathTimer) {
+        return null;
+    }
+
+    return (
+        <span
+            className="player-death-timer"
+            data-testid={`player-death-timer-${playerDeathTimer.participantId}`}
+            title="Respawn timer"
+        >
+            {playerDeathTimer.status}
+        </span>
+    );
 }
 
 function getDragonSVG(dragonName: string, teamColor: string, index: number) {

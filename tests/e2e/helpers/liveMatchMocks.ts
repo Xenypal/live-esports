@@ -192,6 +192,8 @@ export function createBlueDragonWindowFrames(): WindowFrame[] {
 }
 
 export function createObjectiveTimerWindowFrames(): WindowFrame[] {
+  const baselineWindowFrame = createLiveWindowFrame();
+
   const gameStartFrame = createObjectiveTimerInitialWindowFrame();
 
   return [
@@ -273,6 +275,186 @@ export function createObjectiveTimerInitialWindowFrame(): WindowFrame {
       towers: 0,
     },
   };
+}
+
+function withBlueParticipant(
+  frame: WindowFrame,
+  participantIndex: number,
+  updates: Partial<WindowFrame['blueTeam']['participants'][number]>,
+) {
+  return {
+    ...frame,
+    blueTeam: {
+      ...frame.blueTeam,
+      participants: frame.blueTeam.participants.map((participant, index) =>
+        index === participantIndex ? { ...participant, ...updates } : participant,
+      ),
+    },
+  };
+}
+
+function withRedParticipant(
+  frame: WindowFrame,
+  participantIndex: number,
+  updates: Partial<WindowFrame['redTeam']['participants'][number]>,
+) {
+  return {
+    ...frame,
+    redTeam: {
+      ...frame.redTeam,
+      participants: frame.redTeam.participants.map((participant, index) =>
+        index === participantIndex ? { ...participant, ...updates } : participant,
+      ),
+    },
+  };
+}
+
+export function createObservedDeathWindowFrames(): WindowFrame[] {
+  const gameStartFrame = createObjectiveTimerInitialWindowFrame();
+  const baseDeathFrame: WindowFrame = {
+    ...gameStartFrame,
+    rfc460Timestamp: '2026-04-03T08:46:20.000Z',
+    blueTeam: {
+      ...gameStartFrame.blueTeam,
+      barons: 1,
+      dragons: ['ocean', 'hextech', 'infernal', 'chemtech'],
+      totalGold: 70500,
+      totalKills: 24,
+      towers: 9,
+    },
+    redTeam: {
+      ...gameStartFrame.redTeam,
+      dragons: ['cloud', 'mountain'],
+      totalGold: 62100,
+      totalKills: 17,
+      towers: 4,
+    },
+  };
+
+  return [
+    gameStartFrame,
+    withRedParticipant(baseDeathFrame, 2, {
+      assists: 8,
+      creepScore: 292,
+      currentHealth: 0,
+      deaths: 1,
+      level: 18,
+      maxHealth: 2650,
+      totalGold: 13100,
+    }),
+  ];
+}
+
+export function createLateJoinDeathBackfillWindowFrames(): WindowFrame[] {
+  return createObservedDeathWindowFrames();
+}
+
+export function createLateJoinDeathCurrentWindowFrame(): WindowFrame {
+  const deathFrame = createObservedDeathWindowFrames()[1];
+  return withRedParticipant(
+    {
+      ...deathFrame,
+      rfc460Timestamp: '2026-04-03T08:46:25.000Z',
+      blueTeam: {
+        ...deathFrame.blueTeam,
+        totalGold: 70900,
+      },
+      redTeam: {
+        ...deathFrame.redTeam,
+        totalGold: 62400,
+      },
+    },
+    2,
+    {
+      assists: 8,
+      creepScore: 292,
+      currentHealth: 0,
+      deaths: 1,
+      level: 18,
+      maxHealth: 2650,
+      totalGold: 13100,
+    },
+  );
+}
+
+export function createAmbiguousDeathWindowFrames(): WindowFrame[] {
+  const gameStartFrame = createObjectiveTimerInitialWindowFrame();
+  const baseDeadFrame: WindowFrame = {
+    ...gameStartFrame,
+    rfc460Timestamp: '2026-04-03T08:46:25.000Z',
+    blueTeam: {
+      ...gameStartFrame.blueTeam,
+      barons: 1,
+      dragons: ['ocean', 'hextech', 'infernal', 'chemtech'],
+      totalGold: 70900,
+      totalKills: 25,
+      towers: 9,
+    },
+    redTeam: {
+      ...gameStartFrame.redTeam,
+      dragons: ['cloud', 'mountain'],
+      totalGold: 62400,
+      totalKills: 17,
+      towers: 4,
+    },
+  };
+
+  return [
+    gameStartFrame,
+    withRedParticipant(baseDeadFrame, 2, {
+      assists: 8,
+      creepScore: 292,
+      currentHealth: 0,
+      deaths: 2,
+      level: 18,
+      maxHealth: 2650,
+      totalGold: 13100,
+    }),
+  ];
+}
+
+export function createRespawnedDeathWindowFrames(): WindowFrame[] {
+  const currentDeadFrame = createLateJoinDeathCurrentWindowFrame();
+  return [
+    currentDeadFrame,
+    withRedParticipant(
+      {
+        ...currentDeadFrame,
+        rfc460Timestamp: '2026-04-03T08:47:35.000Z',
+        blueTeam: {
+          ...currentDeadFrame.blueTeam,
+          totalGold: 73500,
+        },
+        redTeam: {
+          ...currentDeadFrame.redTeam,
+          totalGold: 64800,
+        },
+      },
+      2,
+      {
+        assists: 8,
+        creepScore: 303,
+        currentHealth: 2650,
+        deaths: 1,
+        level: 18,
+        maxHealth: 2650,
+        totalGold: 13850,
+      },
+    ),
+  ];
+}
+
+export function createFinishedDeathWindowFrames(): WindowFrame[] {
+  const deathFrames = createObservedDeathWindowFrames();
+  return [
+    deathFrames[0],
+    deathFrames[1],
+    {
+      ...deathFrames[1],
+      gameState: 'finished',
+      rfc460Timestamp: '2026-04-03T08:46:40.000Z',
+    },
+  ];
 }
 
 export function createSplitDragonObjectiveWindowFrames(): WindowFrame[] {
@@ -437,6 +619,88 @@ export function createAliveObjectiveWindowFrames(): WindowFrame[] {
   ];
 }
 
+export function createLateJoinDragonRespawnInitialWindowFrames(): WindowFrame[] {
+  const gameStartFrame = createObjectiveTimerInitialWindowFrame();
+  const dragonTakeFrame: WindowFrame = {
+    ...gameStartFrame,
+    rfc460Timestamp: '2026-04-03T08:10:00.000Z',
+    blueTeam: {
+      ...gameStartFrame.blueTeam,
+      dragons: ['ocean'],
+      totalGold: 17000,
+      totalKills: 6,
+      towers: 2,
+    },
+    redTeam: {
+      ...gameStartFrame.redTeam,
+      totalGold: 15900,
+      totalKills: 4,
+      towers: 1,
+    },
+  };
+
+  return [
+    gameStartFrame,
+    dragonTakeFrame,
+    {
+      ...dragonTakeFrame,
+      rfc460Timestamp: '2026-04-03T08:12:00.000Z',
+      blueTeam: {
+        ...dragonTakeFrame.blueTeam,
+        totalGold: 19800,
+        totalKills: 7,
+      },
+      redTeam: {
+        ...dragonTakeFrame.redTeam,
+        totalGold: 18300,
+        totalKills: 5,
+      },
+    },
+  ];
+}
+
+export function createLateJoinBaronRespawnInitialWindowFrames(): WindowFrame[] {
+  const gameStartFrame = createObjectiveTimerInitialWindowFrame();
+  const baronTakeFrame: WindowFrame = {
+    ...gameStartFrame,
+    rfc460Timestamp: '2026-04-03T08:21:30.000Z',
+    blueTeam: {
+      ...gameStartFrame.blueTeam,
+      barons: 1,
+      dragons: ['ocean', 'hextech'],
+      totalGold: 46200,
+      totalKills: 13,
+      towers: 6,
+    },
+    redTeam: {
+      ...gameStartFrame.redTeam,
+      dragons: ['cloud'],
+      totalGold: 40800,
+      totalKills: 8,
+      towers: 3,
+    },
+  };
+
+  return [
+    gameStartFrame,
+    baronTakeFrame,
+    {
+      ...baronTakeFrame,
+      rfc460Timestamp: '2026-04-03T08:22:30.000Z',
+      blueTeam: {
+        ...baronTakeFrame.blueTeam,
+        totalGold: 48100,
+        totalKills: 14,
+      },
+      redTeam: {
+        ...baronTakeFrame.redTeam,
+        totalGold: 42150,
+        totalKills: 8,
+      },
+    },
+  ];
+}
+
 export function createObservedBaronBuffWindowFrames(): WindowFrame[] {
   const baselineWindowFrame = createLiveWindowFrame();
   const gameStartFrame: WindowFrame = {
@@ -565,11 +829,14 @@ export function createEstimatedBaronInitialWindowFrame(): WindowFrame {
 }
 
 type MockLiveMatchApisOptions = {
+  backfillWindowFrames?: WindowFrame[];
   detailsDelayMs?: number;
   eventDetailsResponses?: any[];
   itemsDelayMs?: number;
   initialWindowFrame?: WindowFrame;
+  initialWindowFrames?: WindowFrame[];
   liveWindowFrames?: WindowFrame[];
+  liveWindowPollDelayMs?: number;
 };
 
 export async function mockLiveMatchApis(page: Page, options?: MockLiveMatchApisOptions) {
@@ -620,10 +887,16 @@ export async function mockLiveMatchApis(page: Page, options?: MockLiveMatchApisO
   };
 
   const liveWindowFrames = options?.liveWindowFrames?.length ? options.liveWindowFrames : [createLiveWindowFrame()];
-  const initialWindowFrame = options?.initialWindowFrame || liveWindowFrames[0];
+  const backfillWindowFrames = options?.backfillWindowFrames?.length ? options.backfillWindowFrames : undefined;
+  const initialWindowFrames = options?.initialWindowFrames?.length
+    ? options.initialWindowFrames
+    : [options?.initialWindowFrame || liveWindowFrames[0]];
   const detailsDelayMs = options?.detailsDelayMs || 0;
   const eventDetailsResponses = options?.eventDetailsResponses?.length ? options.eventDetailsResponses : [completedEventDetails];
   const itemsDelayMs = options?.itemsDelayMs || 0;
+  const liveWindowPollDelayMs = options?.liveWindowPollDelayMs || 0;
+  const latestInitialWindowFrame = initialWindowFrames[initialWindowFrames.length - 1];
+  const latestInitialWindowFrameMs = latestInitialWindowFrame ? Date.parse(latestInitialWindowFrame.rfc460Timestamp) : Number.NaN;
   let eventDetailsCallCount = 0;
   let liveWindowCallCount = 0;
 
@@ -639,7 +912,7 @@ export async function mockLiveMatchApis(page: Page, options?: MockLiveMatchApisO
         participantMetadata: createParticipantMetadata('red'),
       },
     },
-    frames: [initialWindowFrame],
+    frames: initialWindowFrames,
   };
 
   const detailsResponse = {
@@ -740,17 +1013,35 @@ export async function mockLiveMatchApis(page: Page, options?: MockLiveMatchApisO
   await page.route(/\/livestats\/v1\/window\//, async route => {
     const requestUrl = new URL(route.request().url());
     const isLivePollingRequest = requestUrl.searchParams.has('startingTime');
-    const liveFrameIndex = Math.min(liveWindowCallCount, liveWindowFrames.length - 1);
-    const responseFrame = isLivePollingRequest ? liveWindowFrames[liveFrameIndex] : initialWindowFrame;
+    const requestedStartingTime = requestUrl.searchParams.get('startingTime');
+    const requestedStartingTimeMs = requestedStartingTime ? Date.parse(requestedStartingTime) : Number.NaN;
+    const isBackfillRequest = isLivePollingRequest
+      && !Number.isNaN(requestedStartingTimeMs)
+      && !Number.isNaN(latestInitialWindowFrameMs)
+      && requestedStartingTimeMs <= latestInitialWindowFrameMs;
 
+    if (isBackfillRequest) {
+      await route.fulfill({
+        json: {
+          ...initialWindowResponse,
+          frames: backfillWindowFrames || initialWindowFrames,
+        },
+      });
+      return;
+    }
+
+    const liveFrameIndex = Math.min(liveWindowCallCount, liveWindowFrames.length - 1);
     if (isLivePollingRequest) {
       liveWindowCallCount += 1;
+      if (liveWindowPollDelayMs > 0) {
+        await new Promise(resolve => setTimeout(resolve, liveWindowPollDelayMs));
+      }
     }
 
     await route.fulfill({
       json: {
         ...initialWindowResponse,
-        frames: [responseFrame],
+        frames: isLivePollingRequest ? [liveWindowFrames[liveFrameIndex]] : initialWindowResponse.frames,
       },
     });
   });

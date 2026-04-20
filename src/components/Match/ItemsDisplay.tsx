@@ -112,9 +112,19 @@ function formatItemDescription(item: Item) {
 }
 
 function showItemDescription(elementId: string) {
-    $(`#${elementId} .itemDescription`).show()
+    const jquery = typeof window !== "undefined" ? (window as Window & { $?: any }).$ : undefined;
+    if (typeof jquery !== "function") {
+        return;
+    }
+
+    jquery(`#${elementId} .itemDescription`).show()
 }
 
 function hideItemDescription(elementId: string) {
-    $(`#${elementId} .itemDescription`).hide()
+    const jquery = typeof window !== "undefined" ? (window as Window & { $?: any }).$ : undefined;
+    if (typeof jquery !== "function") {
+        return;
+    }
+
+    jquery(`#${elementId} .itemDescription`).hide()
 }

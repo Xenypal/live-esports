@@ -27,7 +27,7 @@ The app reads live snapshots from:
 
 The timer / buff logic uses only the `WindowFrame` data in:
 
-- [baseTypes.ts](C:/Users/legoe/Downloads/Python-Projects/Esports-Hosting/src/components/types/baseTypes.ts)
+- [baseTypes.ts](./src/components/types/baseTypes.ts)
 
 Important fields:
 
@@ -54,7 +54,7 @@ That means part of the system is exact, and part of it is inference.
 
 The neutral objective timer logic lives in:
 
-- [objectiveTimers.ts](C:/Users/legoe/Downloads/Python-Projects/Esports-Hosting/src/components/Match/objectiveTimers.ts)
+- [objectiveTimers.ts](./src/components/Match/objectiveTimers.ts)
 
 Main entry points:
 
@@ -67,7 +67,7 @@ Current standard timings used:
 - Dragon respawn: `5:00`
 - Baron first spawn: `20:00`
 - Baron respawn: `6:00`
-- Elder spawn: `6:00` after the 4th elemental
+- Elder spawn: `6:00` after the 4th elemental taken by 1 team. Otherwise dragons keep spawning
 - Elder respawn: `6:00`
 - Baron buff duration: `3:00`
 - Elder buff duration: `2:30`
@@ -104,7 +104,7 @@ The timers do not wait for Riot to send a new frame every second.
 
 Instead, in:
 
-- [Game.tsx](C:/Users/legoe/Downloads/Python-Projects/Esports-Hosting/src/components/Match/Game.tsx)
+- [Game.tsx](./src/components/Match/Game.tsx)
 
 the page creates a local clock:
 
@@ -116,7 +116,7 @@ That clock is anchored to the latest Riot frame timestamp and then advanced loca
 
 Team buff timer logic also lives in:
 
-- [objectiveTimers.ts](C:/Users/legoe/Downloads/Python-Projects/Esports-Hosting/src/components/Match/objectiveTimers.ts)
+- [objectiveTimers.ts](./src/components/Match/objectiveTimers.ts)
 
 Main entry point:
 
@@ -124,7 +124,7 @@ Main entry point:
 
 These timers are rendered by:
 
-- [Game.tsx](C:/Users/legoe/Downloads/Python-Projects/Esports-Hosting/src/components/Match/Game.tsx)
+- [Game.tsx](./src/components/Match/Game.tsx)
 
 UI location:
 
@@ -186,7 +186,7 @@ This is not exact, but it gives a useful betting-oriented estimate.
 
 Player-level buff indicator logic lives in:
 
-- [objectiveTimers.ts](C:/Users/legoe/Downloads/Python-Projects/Esports-Hosting/src/components/Match/objectiveTimers.ts)
+- [objectiveTimers.ts](./src/components/Match/objectiveTimers.ts)
 
 Main entry point:
 
@@ -194,7 +194,7 @@ Main entry point:
 
 Rendered in:
 
-- [Game.tsx](C:/Users/legoe/Downloads/Python-Projects/Esports-Hosting/src/components/Match/Game.tsx)
+- [Game.tsx](./src/components/Match/Game.tsx)
 
 Visual component:
 
@@ -254,7 +254,7 @@ This keeps the information visible without pretending it is fully confirmed.
 
 Main rendering file:
 
-- [Game.tsx](C:/Users/legoe/Downloads/Python-Projects/Esports-Hosting/src/components/Match/Game.tsx)
+- [Game.tsx](./src/components/Match/Game.tsx)
 
 Relevant parts:
 
@@ -269,7 +269,7 @@ Relevant parts:
 
 Styles live in:
 
-- [playerStatusStyle.css](C:/Users/legoe/Downloads/Python-Projects/Esports-Hosting/src/components/Match/styles/playerStatusStyle.css)
+- [playerStatusStyle.css](./src/components/Match/styles/playerStatusStyle.css)
 
 Important classes:
 
@@ -309,11 +309,11 @@ These are known limitations of the current approach:
 
 The current mocked Playwright coverage lives in:
 
-- [live-match-objective-timers.spec.ts](C:/Users/legoe/Downloads/Python-Projects/Esports-Hosting/tests/e2e/live-match-objective-timers.spec.ts)
+- [live-match-objective-timers.spec.ts](./tests/e2e/live-match-objective-timers.spec.ts)
 
 The mock frame builders live in:
 
-- [liveMatchMocks.ts](C:/Users/legoe/Downloads/Python-Projects/Esports-Hosting/tests/e2e/helpers/liveMatchMocks.ts)
+- [liveMatchMocks.ts](./tests/e2e/helpers/liveMatchMocks.ts)
 
 Covered scenarios:
 
@@ -327,9 +327,9 @@ Covered scenarios:
 
 If you want to trace the system quickly, read in this order:
 
-1. [objectiveTimers.ts](C:/Users/legoe/Downloads/Python-Projects/Esports-Hosting/src/components/Match/objectiveTimers.ts)
-2. [Game.tsx](C:/Users/legoe/Downloads/Python-Projects/Esports-Hosting/src/components/Match/Game.tsx)
-3. [live-match-objective-timers.spec.ts](C:/Users/legoe/Downloads/Python-Projects/Esports-Hosting/tests/e2e/live-match-objective-timers.spec.ts)
+1. [objectiveTimers.ts](./src/components/Match/objectiveTimers.ts)
+2. [Game.tsx](./src/components/Match/Game.tsx)
+3. [live-match-objective-timers.spec.ts](./tests/e2e/live-match-objective-timers.spec.ts)
 
 That gives you:
 
