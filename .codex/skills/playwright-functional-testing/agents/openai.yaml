@@ -1,0 +1,4 @@
+interface:
+  display_name: "Playwright UI Testing"
+  short_description: "Require Playwright checks for UI changes"
+  default_prompt: "Use $playwright-functional-testing to validate browser-visible changes in this repo with Playwright before wrapping up."
